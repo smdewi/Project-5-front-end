@@ -1,29 +1,59 @@
+/* eslint-disable no-restricted-syntax */
+/* eslint-disable no-undef */
 /* eslint-disable no-unused-vars */
 /* eslint-disable max-len */
-import React, { useRef } from 'react';
+import React, { forwardRef, useRef } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 // register one of the TF.js backends
 import '@tensorflow/tfjs-backend-webgl';
 import Webcam from 'react-webcam';
-
-// confirm the modeltype to use
-/* const detectorConfig = {
-  modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-  enableTracking: true,
-  trackerType: poseDetection.TrackerType.BoundingBox,
-}; */
-
-// load the detector
-/* const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig); */
+import { keypointsToNormalizedKeypoints } from '@tensorflow-models/pose-detection/dist/shared/calculators/keypoints_to_normalized_keypoints';
+/* import { drawKeypoints, drawSkeleton } from '../posenetDrawingUtils.js'; */
 
 let detector;
 let detectorConfig;
 let poses;
+const ptBorder = 'black';
+const ptColor = 'white';
+const minConfidence = 0.3; // min confidence required to draw keypt.
 
-export default function MoveNet() {
+export default function MoveNet2() {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // Helper Function- draw a single keypoint
+  function drawPoint(ctx, y, x, r) {
+    ctx.fillStyle = ptColor;
+    ctx.strokeStyle = ptBorder;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Helper Function- draw keypoints based on confidence
+  function drawKeypoints(keypoints, ctx, scale = 1) {
+    const count = 0;
+    if (poses && poses.length > 0) {
+      console.log('keypoints =', keypoints);
+      keypoints.forEach((keypoint) => {
+        const { x, y, score } = keypoint;
+        if (score > 0.3) {
+          drawPoint(ctx, y, x, 8);
+        }
+      });
+    }
+  }
+
+  // Helper Function - draw keypoints onto canvas
+  const drawCanvas = (pose, video, videoWidth, videoHeight, canvas) => {
+    const ctx = canvas.current.getContext('2d');
+    canvas.current.width = videoWidth;
+    canvas.current.height = videoHeight;
+
+    drawKeypoints(pose[0].keypoints, ctx);
+  };
 
   // Detection
   async function getPoses() {
@@ -39,13 +69,14 @@ export default function MoveNet() {
 
       poses = await detector.estimatePoses(video);
       setTimeout(getPoses, 0);
+      drawCanvas(poses, video, videoWidth, videoHeight, canvasRef);
       console.log(poses);
     }
   }
 
   // Creating Detector based on MoveNet
   async function init() {
-    detectorConfig = { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER };
+    detectorConfig = { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING };
     detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
     await getPoses();
   }
