@@ -17,6 +17,9 @@ let poses;
 const ptBorder = 'black';
 const ptColor = 'white';
 const minConfidence = 0.3; // min confidence required to draw keypt.
+const lineWidth = 3; // thickness of skeletal lines (drawSegment)
+const lineColor = 'black'; // colour of skeletal lines (drawSegment)
+const confiThreshold = 0.3; // min. confidence required for skeleton line
 
 export default function MoveNet2() {
   const webcamRef = useRef(null);
@@ -46,6 +49,66 @@ export default function MoveNet2() {
     }
   }
 
+  // Helper Function convert object to array/tuple
+  /*   function toTuple({ y, x }) {
+    return [y, x];
+  } */
+
+  // Helper Function: Draws a line on  a canvas, i.e. a joint
+  function drawSegment([ay, ax], [by, bx], ctx, scale = 1) {
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = lineColor;
+    ctx.beginPath();
+    ctx.moveTo(ax * scale, ay * scale);
+    ctx.lineTo(bx * scale, by * scale);
+    ctx.stroke();
+  }
+
+  // Helper Function - draw lines between the keypoints to form skeleton pushUpCode
+  function drawSkeleton(keypoints, ctx) {
+    // edge definition for draw skeletion
+    const edges = {
+      '5,7': 'm',
+      '7,9': 'm',
+      '6,8': 'c',
+      '8,10': 'c',
+      '5,6': 'y',
+      '5,11': 'm',
+      '6,12': 'c',
+      '11,12': 'y',
+      '11,13': 'm',
+      '13,15': 'm',
+      '12,14': 'c',
+      '14,16': 'c',
+    };
+    if (poses && poses.length > 0) {
+      // change object key-value pair into array form
+      const edgesArr = Object.entries(edges);
+      edgesArr.forEach((edge) => {
+        // destructure array to work on index position of the hardcoded adj keypoints in the model
+        const [key, value] = edge;
+        const p = key.split(',');
+        // p1 is the earlier point,
+        const p1 = p[0];
+        // p2 is the next point
+        const p2 = p[1];
+
+        // grab the coordinates and scores of each point
+        const y1 = keypoints[p1].y;
+        const x1 = keypoints[p1].x;
+        const c1 = keypoints[p1].score;
+        const y2 = keypoints[p2].y;
+        const x2 = keypoints[p2].x;
+        const c2 = keypoints[p2].score;
+
+        // condition for drawing the line
+        if ((c1 > confiThreshold) && (c2 > confiThreshold)) {
+          drawSegment([y1, x1], [y2, x2], ctx);
+        }
+      });
+    }
+  }
+
   // Helper Function - draw keypoints onto canvas
   const drawCanvas = (pose, video, videoWidth, videoHeight, canvas) => {
     const ctx = canvas.current.getContext('2d');
@@ -53,6 +116,7 @@ export default function MoveNet2() {
     canvas.current.height = videoHeight;
 
     drawKeypoints(pose[0].keypoints, ctx);
+    drawSkeleton(pose[0].keypoints, ctx);
   };
 
   // Detection
